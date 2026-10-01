@@ -1,5 +1,7 @@
 package com.star.vault;
 
+import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
@@ -14,11 +16,7 @@ import android.widget.EditText;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-import java.io.BufferedReader;
 import java.io.DataOutputStream;
-import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -28,7 +26,7 @@ import java.util.Locale;
 import java.util.Set;
 import rikka.shizuku.Shizuku;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
 
     private int clickCounter = 0;
     private long lastClickTime = 0;
@@ -59,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
 
         checkSystemPrivileges();
 
-        // فتح الخزنة عند الضغط 5 مرات على النجمة
+        // 5 نقرات متتالية على النجمة
         starIcon.setOnClickListener(v -> {
             long now = System.currentTimeMillis();
             if (now - lastClickTime < 1500) {
@@ -87,7 +85,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void checkSystemPrivileges() {
         new Thread(() -> {
-            // فحص الروت عبر النواة مباشرة بدون مكتبات خارجية
             try {
                 java.lang.Process p = Runtime.getRuntime().exec("su");
                 DataOutputStream os = new DataOutputStream(p.getOutputStream());
@@ -98,7 +95,6 @@ public class MainActivity extends AppCompatActivity {
                 hasRoot = false;
             }
 
-            // فحص شيزوكو عبر الواجهة الرسمية
             try {
                 if (!hasRoot && Shizuku.pingBinder()) {
                     hasShizuku = (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED);
@@ -112,11 +108,11 @@ public class MainActivity extends AppCompatActivity {
 
             runOnUiThread(() -> {
                 if (hasRoot) {
-                    tvPrivilege.setText("🟢 تم تأكيد صلاحية الروت (إخفاء الأيقونة متاح 100%)");
+                    tvPrivilege.setText("🟢 صلاحية الروت نشطة (إخفاء الأيقونة متاح)");
                 } else if (hasShizuku) {
-                    tvPrivilege.setText("🔵 تم تأكيد صلاحية Shizuku (إخفاء الأيقونة متاح)");
+                    tvPrivilege.setText("🔵 صلاحية Shizuku نشطة (إخفاء الأيقونة متاح)");
                 } else {
-                    tvPrivilege.setText("🟡 يعمل بوضع القفل بالرمز السري (بدون روت / شيزوكو)");
+                    tvPrivilege.setText("🟡 قفل التطبيقات برمز سري نشط (بدون روت / شيزوكو)");
                 }
             });
         }).start();
@@ -169,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
     private void openVault() {
         camouflageView.setVisibility(View.GONE);
         vaultView.setVisibility(View.VISIBLE);
-        tvStatus.setText("تم فتح الخزنة بنجاح.");
+        tvStatus.setText("تم تسجيل الدخول بنجاح.");
     }
 
     private void hideApp() {
@@ -185,7 +181,7 @@ public class MainActivity extends AppCompatActivity {
                 });
             }).start();
         } else {
-            Toast.makeText(this, "إخفاء الأيقونة يتطلب روت أو شيزوكو! يمكنك استخدام خيار (قفل برمز).", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "إخفاء الأيقونة يتطلب روت أو شيزوكو! يمكنك استخدام زر (قفل برمز).", Toast.LENGTH_LONG).show();
         }
     }
 

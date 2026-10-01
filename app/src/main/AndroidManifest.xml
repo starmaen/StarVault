@@ -14,7 +14,7 @@
         android:label="Star"
         android:roundIcon="@android:drawable/btn_star_big_on"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Material3.DayNight.NoActionBar">
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
         <provider
             android:name="rikka.shizuku.ShizukuProvider"
