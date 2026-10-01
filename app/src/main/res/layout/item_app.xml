@@ -8,14 +8,15 @@
 
     <ImageView
         android:id="@+id/imgAppIcon"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:contentDescription="App Icon" />
+        android:layout_width="46dp"
+        android:layout_height="46dp"
+        android:contentDescription="Icon" />
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="6dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -23,36 +24,61 @@
             android:id="@+id/txtAppName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="اسم التطبيق"
+            android:ellipsize="end"
+            android:maxLines="1"
             android:textColor="#FFFFFF"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/txtAppPackage"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:text="com.example.app"
+            android:ellipsize="end"
+            android:maxLines="1"
             android:textColor="#64748B"
             android:textSize="11sp" />
     </LinearLayout>
 
-    <Button
-        android:id="@+id/btnLaunch"
+    <!-- أزرار الإجراءات السريعة -->
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginEnd="6dp"
-        android:backgroundTint="#0EA5E9"
-        android:text="فتح"
-        android:textSize="11sp"
-        android:visibility="gone" />
+        android:orientation="horizontal">
 
-    <Button
-        android:id="@+id/btnAction"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="إخفاء"
-        android:textSize="12sp" />
+        <!-- زر الفتح المباشر للتطبيقات المخفية من داخل الخزنة -->
+        <Button
+            android:id="@+id/btnLaunch"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:layout_marginEnd="4dp"
+            android:backgroundTint="#0284C7"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:text="فتح 🚀"
+            android:textSize="11sp"
+            android:visibility="gone" />
+
+        <!-- زر القفل برمز سري مع إبقاء الأيقونة -->
+        <Button
+            android:id="@+id/btnLock"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:layout_marginEnd="4dp"
+            android:backgroundTint="#7C3AED"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:text="قفل 🔒"
+            android:textSize="11sp" />
+
+        <!-- زر الإخفاء أو الاستعادة -->
+        <Button
+            android:id="@+id/btnAction"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:textSize="11sp" />
+    </LinearLayout>
 
 </LinearLayout>
