@@ -4,6 +4,7 @@ import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Process;
@@ -15,10 +16,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import com.topjohnwu.superuser.Shell;
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import rikka.shizuku.Shizuku;
@@ -52,8 +57,9 @@ public class MainActivity extends AppCompatActivity {
         prefs = getSharedPreferences("StarPrefs", Context.MODE_PRIVATE);
         clockText.setText(new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date()));
 
-        checkPrivileges();
+        checkSystemPrivileges();
 
+        // فتح الخزنة عند الضغط 5 مرات على النجمة
         starIcon.setOnClickListener(v -> {
             long now = System.currentTimeMillis();
             if (now - lastClickTime < 1500) {
@@ -70,48 +76,65 @@ public class MainActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.btnAddApp).setOnClickListener(v -> pickApp());
-        findViewById(R.id.btnHideApp).setOnClickListener(v -> hideAppIcon());
-        findViewById(R.id.btnLockApp).setOnClickListener(v -> lockAppWithPin());
-        findViewById(R.id.btnUnHideApp).setOnClickListener(v -> restoreApp());
+        findViewById(R.id.btnHideApp).setOnClickListener(v -> hideApp());
+        findViewById(R.id.btnLockApp).setOnClickListener(v -> lockApp());
+        findViewById(R.id.btnUnHideApp).setOnClickListener(v -> unhideApp());
 
         if (getIntent().getBooleanExtra("TRIGGER_LOCK", false)) {
             showPasswordDialog();
         }
     }
 
-    private void checkPrivileges() {
+    private void checkSystemPrivileges() {
         new Thread(() -> {
-            hasRoot = Shell.isAppGrantedRoot() == true;
+            // فحص الروت عبر النواة مباشرة بدون مكتبات خارجية
+            try {
+                java.lang.Process p = Runtime.getRuntime().exec("su");
+                DataOutputStream os = new DataOutputStream(p.getOutputStream());
+                os.writeBytes("id\nexit\n");
+                os.flush();
+                hasRoot = (p.waitFor() == 0);
+            } catch (Exception e) {
+                hasRoot = false;
+            }
+
+            // فحص شيزوكو عبر الواجهة الرسمية
             try {
                 if (!hasRoot && Shizuku.pingBinder()) {
-                    hasShizuku = Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
-                    if (!hasShizuku && Shizuku.shouldShowRequestPermissionRationale()) {
+                    hasShizuku = (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED);
+                    if (!hasShizuku) {
                         Shizuku.requestPermission(101);
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+                hasShizuku = false;
+            }
 
             runOnUiThread(() -> {
                 if (hasRoot) {
-                    tvPrivilege.setText("🟢 صلاحية الروت نشطة (إخفاء الأيقونة متاح)");
+                    tvPrivilege.setText("🟢 تم تأكيد صلاحية الروت (إخفاء الأيقونة متاح 100%)");
                 } else if (hasShizuku) {
-                    tvPrivilege.setText("🔵 صلاحية Shizuku نشطة (إخفاء الأيقونة متاح)");
+                    tvPrivilege.setText("🔵 تم تأكيد صلاحية Shizuku (إخفاء الأيقونة متاح)");
                 } else {
-                    tvPrivilege.setText("🟡 وضع القفل بالرمز السري نشط (بدون روت / شيزوكو)");
+                    tvPrivilege.setText("🟡 يعمل بوضع القفل بالرمز السري (بدون روت / شيزوكو)");
                 }
             });
         }).start();
     }
 
-    private void runPrivilegedCommand(String cmd) {
+    private void executeShellCommand(String cmd) {
         if (hasRoot) {
-            Shell.cmd(cmd).exec();
+            try {
+                java.lang.Process p = Runtime.getRuntime().exec("su");
+                DataOutputStream os = new DataOutputStream(p.getOutputStream());
+                os.writeBytes(cmd + "\nexit\n");
+                os.flush();
+                p.waitFor();
+            } catch (Exception ignored) {}
         } else if (hasShizuku) {
             try {
                 Shizuku.newProcess(new String[]{"sh", "-c", cmd}, null, null).waitFor();
-            } catch (Exception e) {
-                Toast.makeText(this, "خطأ شيزوكو: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            }
+            } catch (Exception ignored) {}
         }
     }
 
@@ -146,27 +169,27 @@ public class MainActivity extends AppCompatActivity {
     private void openVault() {
         camouflageView.setVisibility(View.GONE);
         vaultView.setVisibility(View.VISIBLE);
-        tvStatus.setText("مرحباً بك في لوحة تحكم Star.");
+        tvStatus.setText("تم فتح الخزنة بنجاح.");
     }
 
-    private void hideAppIcon() {
+    private void hideApp() {
         String pkg = etPackageName.getText().toString().trim();
         if (pkg.isEmpty()) return;
 
         if (hasRoot || hasShizuku) {
             new Thread(() -> {
-                runPrivilegedCommand("pm hide " + pkg + " || pm disable-user --user 0 " + pkg);
+                executeShellCommand("pm hide " + pkg + " || pm disable-user --user 0 " + pkg);
                 runOnUiThread(() -> {
                     tvStatus.setText("تم إخفاء أيقونة التطبيق تماماً: " + pkg);
                     Toast.makeText(this, "تم إخفاء الأيقونة بنجاح", Toast.LENGTH_SHORT).show();
                 });
             }).start();
         } else {
-            Toast.makeText(this, "إخفاء الأيقونة يتطلب روت أو شيزوكو! يمكنك استخدام زر (قفل برمز).", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "إخفاء الأيقونة يتطلب روت أو شيزوكو! يمكنك استخدام خيار (قفل برمز).", Toast.LENGTH_LONG).show();
         }
     }
 
-    private void lockAppWithPin() {
+    private void lockApp() {
         String pkg = etPackageName.getText().toString().trim();
         if (pkg.isEmpty()) return;
 
@@ -184,14 +207,12 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(this, "تم قفل التطبيق", Toast.LENGTH_SHORT).show();
     }
 
-    private void restoreApp() {
+    private void unhideApp() {
         String pkg = etPackageName.getText().toString().trim();
         if (pkg.isEmpty()) return;
 
         if (hasRoot || hasShizuku) {
-            new Thread(() -> {
-                runPrivilegedCommand("pm unhide " + pkg + " || pm enable " + pkg);
-            }).start();
+            new Thread(() -> executeShellCommand("pm unhide " + pkg + " || pm enable " + pkg)).start();
         }
         Set<String> set = new HashSet<>(prefs.getStringSet("locked_packages", new HashSet<>()));
         set.remove(pkg);
@@ -203,18 +224,13 @@ public class MainActivity extends AppCompatActivity {
 
     private void pickApp() {
         new Thread(() -> {
-            java.util.List<String> list = Shell.cmd("pm list packages -3").exec().getOut();
-            if (list.isEmpty()) {
-                for (android.content.pm.ApplicationInfo info : getPackageManager().getInstalledApplications(0)) {
-                    if ((info.flags & android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0) {
-                        list.add(info.packageName);
-                    }
+            List<String> list = new ArrayList<>();
+            for (ApplicationInfo info : getPackageManager().getInstalledApplications(0)) {
+                if ((info.flags & ApplicationInfo.FLAG_SYSTEM) == 0) {
+                    list.add(info.packageName);
                 }
             }
-            String[] apps = new String[list.size()];
-            for (int i = 0; i < list.size(); i++) {
-                apps[i] = list.get(i).replace("package:", "");
-            }
+            String[] apps = list.toArray(new String[0]);
             runOnUiThread(() -> {
                 new AlertDialog.Builder(this)
                         .setTitle("اختر التطبيق")
