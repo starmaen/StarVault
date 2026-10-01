@@ -24,9 +24,7 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
-import java.io.BufferedReader;
 import java.io.DataOutputStream;
-import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -68,7 +66,7 @@ public class MainActivity extends Activity {
 
     private boolean hasRoot = false;
     private boolean hasShizuku = false;
-    private boolean currentTabIsHidden = true;
+    private boolean currentTabIsHidden = false; // البدء بتبويب كل التطبيقات
 
     private List<AppItem> currentDisplayList = new ArrayList<>();
     private AppAdapter adapter;
@@ -90,6 +88,11 @@ public class MainActivity extends Activity {
 
         prefs = getSharedPreferences("StarPrefs", Context.MODE_PRIVATE);
         clockText.setText(new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date()));
+
+        // تصحيح أي بيانات قديمة اختلطت فيها التطبيقات
+        if (prefs.getBoolean("clean_v2_needed", true)) {
+            prefs.edit().remove("hidden_packages_set").putBoolean("clean_v2_needed", false).apply();
+        }
 
         adapter = new AppAdapter();
         appListView.setAdapter(adapter);
@@ -145,11 +148,11 @@ public class MainActivity extends Activity {
 
             runOnUiThread(() -> {
                 if (hasRoot) {
-                    tvPrivilege.setText("🟢 صلاحية Root نشطة (إخفاء واستعادة تامة للأيقونات)");
+                    tvPrivilege.setText("🟢 صلاحية Root نشطة (إخفاء واستعادة تامة)");
                 } else if (hasShizuku) {
-                    tvPrivilege.setText("🔵 صلاحية Shizuku نشطة (إخفاء واستعادة الأيقونات)");
+                    tvPrivilege.setText("🔵 صلاحية Shizuku نشطة (إخفاء واستعادة)");
                 } else {
-                    tvPrivilege.setText("🟡 قفل بالرمز السري فقط (بدون Root أو Shizuku)");
+                    tvPrivilege.setText("🟡 قفل برمز سري نشط (بدون Root أو Shizuku)");
                 }
             });
         }).start();
@@ -186,7 +189,7 @@ public class MainActivity extends Activity {
     private void openVault() {
         camouflageView.setVisibility(View.GONE);
         vaultView.setVisibility(View.VISIBLE);
-        switchTab(true);
+        switchTab(false); // فتح قائمة كل التطبيقات تلقائياً
     }
 
     private void switchTab(boolean showHidden) {
@@ -202,51 +205,32 @@ public class MainActivity extends Activity {
     }
 
     private void loadAppsData() {
-        tvStatus.setText("جاري فحص وقراءة التطبيقات المخفية والمثبتة...");
+        tvStatus.setText("جاري تحميل قائمة التطبيقات...");
         new Thread(() -> {
             PackageManager pm = getPackageManager();
-            Set<String> savedHiddenSet = new HashSet<>(prefs.getStringSet("hidden_packages_set", new HashSet<>()));
+            Set<String> hiddenSet = new HashSet<>(prefs.getStringSet("vault_hidden_apps", new HashSet<>()));
             Set<String> lockedSet = prefs.getStringSet("locked_packages", new HashSet<>());
             List<AppItem> list = new ArrayList<>();
 
-            // 1. كشف التطبيقات المعطلة على النظام بالروت تلقائياً حتى التي فُقدت سابقاً
-            if (hasRoot) {
-                try {
-                    java.lang.Process p = Runtime.getRuntime().exec("su");
-                    DataOutputStream os = new DataOutputStream(p.getOutputStream());
-                    os.writeBytes("pm list packages -d; pm list packages -u\nexit\n");
-                    os.flush();
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        String clean = line.replace("package:", "").trim();
-                        if (!clean.isEmpty() && !clean.equals(getPackageName())) {
-                            savedHiddenSet.add(clean);
-                        }
-                    }
-                    p.waitFor();
-                    prefs.edit().putStringSet("hidden_packages_set", savedHiddenSet).apply();
-                } catch (Exception ignored) {}
-            }
-
-            // 2. استخدام أعلام أندرويد الموسعة لكشف التطبيقات المخفية والمعطلة
-            int flags = PackageManager.GET_META_DATA | 0x00002000 | 0x00000200; // MATCH_UNINSTALLED_PACKAGES | MATCH_DISABLED_COMPONENTS
+            // قراءة التطبيقات مع إظهار المعطل والمثبت
+            int flags = PackageManager.GET_META_DATA | 0x00002000 | 0x00000200;
             List<ApplicationInfo> packages = pm.getInstalledApplications(flags);
 
             for (ApplicationInfo info : packages) {
                 if (info.packageName.equals(getPackageName())) continue;
                 boolean isSystem = (info.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
-
-                boolean isHidden = savedHiddenSet.contains(info.packageName) || !info.enabled;
+                boolean isHidden = hiddenSet.contains(info.packageName);
                 boolean isLocked = lockedSet.contains(info.packageName);
 
                 if (currentTabIsHidden) {
-                    if (isHidden && !isSystem) {
+                    // في تبويب المخفي: عرض ما تم إخفاؤه بيدك فقط
+                    if (isHidden) {
                         String appName = pm.getApplicationLabel(info).toString();
                         Drawable icon = pm.getApplicationIcon(info);
                         list.add(new AppItem(appName, info.packageName, icon, true, isLocked));
                     }
                 } else {
+                    // في تبويب كل التطبيقات: عرض جميع التطبيقات غير المخفية
                     if (!isHidden && !isSystem) {
                         String appName = pm.getApplicationLabel(info).toString();
                         Drawable icon = pm.getApplicationIcon(info);
@@ -259,9 +243,9 @@ public class MainActivity extends Activity {
                 currentDisplayList = list;
                 adapter.notifyDataSetChanged();
                 if (currentTabIsHidden) {
-                    tvStatus.setText("عدد التطبيقات المخفية داخل الخزنة: " + list.size());
+                    tvStatus.setText("التطبيقات المخفية داخل الخزنة: " + list.size());
                 } else {
-                    tvStatus.setText("اختر (إخفاء) لحذفه للشاشة، أو (قفل) لحمايته برمز");
+                    tvStatus.setText("التطبيقات المثبتة: " + list.size() + " (اختر إخفاء أو قفل)");
                 }
             });
         }).start();
@@ -275,18 +259,17 @@ public class MainActivity extends Activity {
                 setComponentEnabledShizuku(pkg, PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER);
             }
 
-            Set<String> set = new HashSet<>(prefs.getStringSet("hidden_packages_set", new HashSet<>()));
+            Set<String> set = new HashSet<>(prefs.getStringSet("vault_hidden_apps", new HashSet<>()));
             set.add(pkg);
-            prefs.edit().putStringSet("hidden_packages_set", set).apply();
+            prefs.edit().putStringSet("vault_hidden_apps", set).apply();
 
             runOnUiThread(() -> {
-                Toast.makeText(this, "تم إخفاء التطبيق وحفظه داخل الخزنة!", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "تم إخفاء التطبيق ونقله للخزنة", Toast.LENGTH_SHORT).show();
                 loadAppsData();
             });
         }).start();
     }
 
-    // أمر الاستعادة الثلاثي المضمون لإنقاذ أي تطبيق مفقود فوراً
     private void restoreApp(String pkg) {
         new Thread(() -> {
             if (hasRoot) {
@@ -295,21 +278,23 @@ public class MainActivity extends Activity {
                 setComponentEnabledShizuku(pkg, PackageManager.COMPONENT_ENABLED_STATE_DEFAULT);
             }
 
-            Set<String> set = new HashSet<>(prefs.getStringSet("hidden_packages_set", new HashSet<>()));
+            Set<String> set = new HashSet<>(prefs.getStringSet("vault_hidden_apps", new HashSet<>()));
             set.remove(pkg);
-            prefs.edit().putStringSet("hidden_packages_set", set).apply();
+            prefs.edit().putStringSet("vault_hidden_apps", set).apply();
 
             runOnUiThread(() -> {
-                Toast.makeText(this, "تمت استعادة التطبيق وإعادته للشاشة فوراً!", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "تمت استعادة التطبيق للشاشة الرئيسية!", Toast.LENGTH_SHORT).show();
                 loadAppsData();
             });
         }).start();
     }
 
-    private void toggleLockApp(String pkg) {
+    private void toggleLock(String pkg) {
         Set<String> set = new HashSet<>(prefs.getStringSet("locked_packages", new HashSet<>()));
-        boolean willLock = !set.contains(pkg);
-        if (willLock) {
+        if (set.contains(pkg)) {
+            set.remove(pkg);
+            Toast.makeText(this, "تم إلغاء قفل الرمز", Toast.LENGTH_SHORT).show();
+        } else {
             set.add(pkg);
             AppOpsManager aom = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
             if (aom.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), getPackageName()) != AppOpsManager.MODE_ALLOWED) {
@@ -317,9 +302,6 @@ public class MainActivity extends Activity {
             }
             startService(new Intent(this, AppLockService.class));
             Toast.makeText(this, "تم قفل التطبيق برمز سري", Toast.LENGTH_SHORT).show();
-        } else {
-            set.remove(pkg);
-            Toast.makeText(this, "تم إلغاء قفل الرمز السري", Toast.LENGTH_SHORT).show();
         }
         prefs.edit().putStringSet("locked_packages", set).apply();
         loadAppsData();
@@ -392,9 +374,18 @@ public class MainActivity extends Activity {
             txtName.setText(item.name);
             txtPkg.setText(item.packageName);
 
+            // زر القفل يظهر دائماً في كل التطبيقات
+            if (item.isLocked) {
+                btnLock.setText("مقفول 🔐");
+                btnLock.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF475569));
+            } else {
+                btnLock.setText("قفل 🔒");
+                btnLock.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF7C3AED));
+            }
+            btnLock.setOnClickListener(v -> toggleLock(item.packageName));
+
             if (item.isHidden) {
-                // عنصر في تبويب التطبيقات المخفية
-                btnLock.setVisibility(View.GONE);
+                // حالة التطبيق المخفي
                 btnLaunch.setVisibility(View.VISIBLE);
                 btnLaunch.setOnClickListener(v -> launchApp(item.packageName));
 
@@ -402,18 +393,8 @@ public class MainActivity extends Activity {
                 btnAction.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF10B981));
                 btnAction.setOnClickListener(v -> restoreApp(item.packageName));
             } else {
-                // عنصر في تبويب كل التطبيقات
+                // حالة التطبيق العادي
                 btnLaunch.setVisibility(View.GONE);
-                btnLock.setVisibility(View.VISIBLE);
-
-                if (item.isLocked) {
-                    btnLock.setText("مقفول 🔐");
-                    btnLock.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF475569));
-                } else {
-                    btnLock.setText("قفل 🔒");
-                    btnLock.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF7C3AED));
-                }
-                btnLock.setOnClickListener(v -> toggleLockApp(item.packageName));
 
                 btnAction.setText("إخفاء 👁️");
                 btnAction.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFEF4444));
