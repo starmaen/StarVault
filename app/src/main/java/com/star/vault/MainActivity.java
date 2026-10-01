@@ -9,6 +9,7 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.os.Process;
 import android.provider.Settings;
 import android.view.View;
@@ -17,6 +18,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.io.DataOutputStream;
+import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -25,6 +27,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import rikka.shizuku.Shizuku;
+import rikka.shizuku.ShizukuBinderWrapper;
+import rikka.shizuku.SystemServiceHelper;
 
 public class MainActivity extends Activity {
 
@@ -57,7 +61,6 @@ public class MainActivity extends Activity {
 
         checkSystemPrivileges();
 
-        // 5 نقرات متتالية على النجمة
         starIcon.setOnClickListener(v -> {
             long now = System.currentTimeMillis();
             if (now - lastClickTime < 1500) {
@@ -118,18 +121,31 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    private void executeShellCommand(String cmd) {
+    private void executePrivilegedAction(String pkg, boolean hide) {
         if (hasRoot) {
             try {
                 java.lang.Process p = Runtime.getRuntime().exec("su");
                 DataOutputStream os = new DataOutputStream(p.getOutputStream());
-                os.writeBytes(cmd + "\nexit\n");
+                String cmd = hide ? ("pm hide " + pkg + " || pm disable-user --user 0 " + pkg + "\n")
+                                  : ("pm unhide " + pkg + " || pm enable " + pkg + "\n");
+                os.writeBytes(cmd + "exit\n");
                 os.flush();
                 p.waitFor();
             } catch (Exception ignored) {}
         } else if (hasShizuku) {
             try {
-                Shizuku.newProcess(new String[]{"sh", "-c", cmd}, null, null).waitFor();
+                // تنفيذ أمر إدارة الحزم عبر Shizuku Binder الرسمي دون الحاجة لدوال private
+                IBinder originalBinder = SystemServiceHelper.getSystemService("package");
+                IBinder wrappedBinder = new ShizukuBinderWrapper(originalBinder);
+                Class<?> stubClass = Class.forName("android.content.pm.IPackageManager$Stub");
+                Method asInterface = stubClass.getMethod("asInterface", IBinder.class);
+                Object pmInstance = asInterface.invoke(null, wrappedBinder);
+
+                int newState = hide ? PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER
+                                    : PackageManager.COMPONENT_ENABLED_STATE_DEFAULT;
+                Method setEnabledSetting = pmInstance.getClass().getMethod(
+                        "setApplicationEnabledSetting", String.class, int.class, int.class, int.class, String.class);
+                setEnabledSetting.invoke(pmInstance, pkg, newState, 0, 0, "shell");
             } catch (Exception ignored) {}
         }
     }
@@ -174,9 +190,9 @@ public class MainActivity extends Activity {
 
         if (hasRoot || hasShizuku) {
             new Thread(() -> {
-                executeShellCommand("pm hide " + pkg + " || pm disable-user --user 0 " + pkg);
+                executePrivilegedAction(pkg, true);
                 runOnUiThread(() -> {
-                    tvStatus.setText("تم إخفاء أيقونة التطبيق تماماً: " + pkg);
+                    tvStatus.setText("تم تطبيق إخفاء التطبيق: " + pkg);
                     Toast.makeText(this, "تم إخفاء الأيقونة بنجاح", Toast.LENGTH_SHORT).show();
                 });
             }).start();
@@ -208,7 +224,7 @@ public class MainActivity extends Activity {
         if (pkg.isEmpty()) return;
 
         if (hasRoot || hasShizuku) {
-            new Thread(() -> executeShellCommand("pm unhide " + pkg + " || pm enable " + pkg)).start();
+            new Thread(() -> executePrivilegedAction(pkg, false)).start();
         }
         Set<String> set = new HashSet<>(prefs.getStringSet("locked_packages", new HashSet<>()));
         set.remove(pkg);
