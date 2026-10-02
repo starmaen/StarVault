@@ -1,9 +1,86 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0F172A">
+    android:background="#070B19">
 
+    <!-- طبقة غيوم ناعمة في الخلفية العامة -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:alpha="0.85">
+
+        <!-- غيمة علوية يسارية ناعمة -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="320dp"
+            android:layout_height="180dp"
+            android:layout_gravity="top|start"
+            android:layout_marginStart="-80dp"
+            android:layout_marginTop="-40dp"
+            app:cardBackgroundColor="#0D38BDF8"
+            app:cardCornerRadius="90dp"
+            app:cardElevation="0dp"
+            app:cardMaxElevation="0dp" />
+
+        <!-- غيمة وسطية ناعمة خلف النجم -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="380dp"
+            android:layout_height="220dp"
+            android:layout_gravity="center"
+            app:cardBackgroundColor="#0864748B"
+            app:cardCornerRadius="110dp"
+            app:cardElevation="0dp"
+            app:cardMaxElevation="0dp" />
+
+        <!-- غيمة سفلية يمينية ناعمة -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="350dp"
+            android:layout_height="200dp"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="-100dp"
+            android:layout_marginBottom="-50dp"
+            app:cardBackgroundColor="#0D1E293B"
+            app:cardCornerRadius="100dp"
+            app:cardElevation="0dp"
+            app:cardMaxElevation="0dp" />
+
+        <!-- تأثير نجوم صغيرة متناثرة في السماء -->
+        <View
+            android:layout_width="3dp"
+            android:layout_height="3dp"
+            android:layout_gravity="top|start"
+            android:layout_marginStart="60dp"
+            android:layout_marginTop="100dp"
+            android:background="#FFFFFF"
+            android:alpha="0.6"/>
+        <View
+            android:layout_width="2dp"
+            android:layout_height="2dp"
+            android:layout_gravity="top|end"
+            android:layout_marginEnd="80dp"
+            android:layout_marginTop="150dp"
+            android:background="#FFFFFF"
+            android:alpha="0.4"/>
+        <View
+            android:layout_width="3dp"
+            android:layout_height="3dp"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="80dp"
+            android:layout_marginBottom="250dp"
+            android:background="#FFFFFF"
+            android:alpha="0.5"/>
+        <View
+            android:layout_width="2dp"
+            android:layout_height="2dp"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="50dp"
+            android:layout_marginBottom="180dp"
+            android:background="#FFFFFF"
+            android:alpha="0.7"/>
+    </FrameLayout>
+
+    <!-- واجهة التمويه (شاشة السماء الليلية والنجمة المشعة) -->
     <LinearLayout
         android:id="@+id/camouflageView"
         android:layout_width="match_parent"
@@ -12,39 +89,92 @@
         android:orientation="vertical"
         android:padding="24dp">
 
-        <TextView
-            android:id="@+id/starIcon"
+        <!-- هالة النور الذهبية المحيطة بالنجمة -->
+        <FrameLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="⭐"
-            android:textSize="96sp" />
+            android:layout_gravity="center"
+            android:gravity="center">
 
+            <!-- الهالة الخارجية الكبرى -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="240dp"
+                android:layout_height="240dp"
+                android:layout_gravity="center"
+                app:cardBackgroundColor="#0DFFD700"
+                app:cardCornerRadius="120dp"
+                app:cardElevation="0dp"
+                app:cardMaxElevation="0dp" />
+
+            <!-- الهالة الوسطى -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="170dp"
+                android:layout_height="170dp"
+                android:layout_gravity="center"
+                app:cardBackgroundColor="#1AFFD700"
+                app:cardCornerRadius="85dp"
+                app:cardElevation="0dp"
+                app:cardMaxElevation="0dp" />
+
+            <!-- الهالة الداخلية الدافئة -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="110dp"
+                android:layout_height="110dp"
+                android:layout_gravity="center"
+                app:cardBackgroundColor="#33FFB000"
+                app:cardCornerRadius="55dp"
+                app:cardElevation="0dp"
+                app:cardMaxElevation="0dp" />
+
+            <!-- النجمة الذهبية المشعة في المنتصف تماماً -->
+            <TextView
+                android:id="@+id/starIcon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="⭐"
+                android:textSize="82sp"
+                android:shadowColor="#FFD700"
+                android:shadowDx="0"
+                android:shadowDy="0"
+                android:shadowRadius="25" />
+        </FrameLayout>
+
+        <!-- ساعة الواجهة اللطيفة -->
         <TextView
             android:id="@+id/clockText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="32dp"
             android:text="12:00"
             android:textColor="#FFFFFF"
-            android:textSize="54sp"
-            android:textStyle="bold" />
+            android:textSize="56sp"
+            android:textStyle="bold"
+            android:shadowColor="#38BDF8"
+            android:shadowDx="0"
+            android:shadowDy="2"
+            android:shadowRadius="10" />
 
+        <!-- اسم الواجهة الفرعي -->
         <TextView
             android:id="@+id/dateText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="8dp"
             android:text="Star Weather &amp; Time"
             android:textColor="#94A3B8"
-            android:textSize="16sp" />
+            android:textSize="15sp"
+            android:letterSpacing="0.1" />
     </LinearLayout>
 
+    <!-- واجهة الخزنة السرية (تظهر عند كشف التمويه) -->
     <LinearLayout
         android:id="@+id/vaultView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:padding="16dp"
+        android:background="#0F172A"
         android:visibility="gone">
 
         <LinearLayout
@@ -58,7 +188,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="⭐ Star Vault"
-                android:textColor="#38BDF8"
+                android:textColor="#FBBF24"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -66,6 +196,8 @@
                 android:id="@+id/btnRefresh"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:backgroundTint="#1E293B"
+                android:textColor="#FFFFFF"
                 android:text="تحديث 🔄"
                 android:textSize="12sp" />
         </LinearLayout>
@@ -141,6 +273,5 @@
                 android:textColor="#475569"
                 android:textSize="10sp" />
         </LinearLayout>
-
     </LinearLayout>
 </FrameLayout>
